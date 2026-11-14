@@ -1,14 +1,14 @@
 ---
-name: watch-clip
+name: clipscope
 description: Watch a public video link or a local video file - extract frames and audio, optionally transcribe speech locally. Use when the user sends a video link or file and wants Claude to watch, analyse hooks, pacing or captions, or transcribe it. Works where the platform allows public access without login; no cookies or keys.
-allowed-tools: Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/watch_clip.py *)
+allowed-tools: Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/clipscope.py *)
 ---
 
-# watch-clip
+# clipscope
 
 Run (the script path exactly in this form, with no quotes around it; put the video URL or file path in single quotes, and never pass one that contains a single quote):
 
-python ${CLAUDE_PLUGIN_ROOT}/scripts/watch_clip.py '<url-or-file>' --fps 0.5 --max-frames 24 [--transcribe --model small --lang <code>] [--audio-metrics] [--out <folder in the scratchpad>]
+python ${CLAUDE_PLUGIN_ROOT}/scripts/clipscope.py '<url-or-file>' --fps 0.5 --max-frames 24 [--transcribe --model small --lang <code>] [--audio-metrics] [--out <folder in the scratchpad>]
 
 It writes `frames/f_###.jpg`, `audio.mp3`, `info_short.json` (for downloads), and with `--transcribe` `transcript.txt` and `transcript.json`; with `--audio-metrics` `audio_metrics.json` (loudness, true peak, silences over 0.6 s). It prints `OUT <folder>` and `FRAMES <n>`.
 

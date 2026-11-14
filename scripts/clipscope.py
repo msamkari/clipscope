@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""watch_clip.py <url-or-file> [--fps 0.5] [--max-frames 24] [--out DIR] [--transcribe] [--model small] [--lang CODE] [--audio-metrics]
+"""clipscope.py <url-or-file> [--fps 0.5] [--max-frames 24] [--out DIR] [--transcribe] [--model small] [--lang CODE] [--audio-metrics]
 
 Lets Claude "watch" a clip: downloads a PUBLIC video (yt-dlp, 720p at most, 500 MB at most) or reads a local file, then writes
 frames/f_###.jpg (from the START of the clip only: fps x max-frames) and audio.mp3 (ffmpeg; a clip without audio just skips transcript and metrics). A downloaded video stays in the output folder as clip.*, optionally transcript.txt/.json (local openai-whisper) and audio_metrics.json.
@@ -48,7 +48,7 @@ def slug(s):
 
 
 def parse_args(argv):
-    ap = argparse.ArgumentParser(prog="watch_clip.py")
+    ap = argparse.ArgumentParser(prog="clipscope.py")
     ap.add_argument("src", help="public video URL (http/https) or a local video file")
     ap.add_argument("--fps", type=float, default=0.5)
     ap.add_argument("--max-frames", type=int, default=24)
@@ -71,7 +71,7 @@ def main(argv=None):
     local = os.path.isfile(a.src)
     if not local and not is_web_url(a.src):
         fail("the source must be an existing local file or an http(s) URL")
-    out = (pathlib.Path(a.out) if a.out else pathlib.Path(tempfile.mkdtemp(prefix="watch-clip-"))).resolve()
+    out = (pathlib.Path(a.out) if a.out else pathlib.Path(tempfile.mkdtemp(prefix="clipscope-"))).resolve()
     out.mkdir(parents=True, exist_ok=True)
     for old in list(out.glob("clip.*")) + list(out.glob("frames/f_*.jpg")) + [out / n for n in ("audio.mp3", "info_short.json", "transcript.txt", "transcript.json", "audio_metrics.json")]:
         if old.is_file() and old != pathlib.Path(a.src).resolve(): old.unlink()  # stale files from an earlier run must never be reused

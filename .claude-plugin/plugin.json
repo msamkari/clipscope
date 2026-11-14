@@ -1,10 +1,10 @@
 {
-  "name": "watch-clip",
+  "name": "clipscope",
   "version": "0.1.0",
   "description": "Let Claude watch a public video or a local clip: frames, audio and an optional local transcript, with audio loudness and silence metrics. Uses the yt-dlp, ffmpeg and whisper you already have; installs nothing.",
   "license": "MIT",
-  "homepage": "https://github.com/msamkari/watch-clip",
-  "repository": "https://github.com/msamkari/watch-clip",
+  "homepage": "https://github.com/msamkari/clipscope",
+  "repository": "https://github.com/msamkari/clipscope",
   "keywords": ["video", "transcribe", "frames", "analysis"],
   "author": { "name": "Mohammad Samkari", "url": "https://github.com/msamkari" }
 }

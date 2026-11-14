@@ -1,6 +1,6 @@
 import os, pathlib, subprocess, sys, tempfile, unittest
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SCRIPT = str(ROOT / "scripts" / "watch_clip.py")
+SCRIPT = str(ROOT / "scripts" / "clipscope.py")
 
 
 def run(*args, env=None):
@@ -9,7 +9,7 @@ def run(*args, env=None):
     return subprocess.run([sys.executable, SCRIPT, *args], capture_output=True, text=True, env=e)
 
 
-class WatchClipTests(unittest.TestCase):
+class ClipscopeTests(unittest.TestCase):
     def test_rejects_non_http_source(self):
         for bad in ("file:///etc/passwd", "ftp://x.test/a.mp4", "javascript:alert(1)", "not-a-file-or-url"):
             r = run(bad)
@@ -74,14 +74,14 @@ class WatchClipTests(unittest.TestCase):
         self.assertFalse((o / "frames" / "f_099.jpg").exists())
 
     def test_skill_grants_only_the_plugin_script(self):
-        t = (ROOT / "skills" / "watch-clip" / "SKILL.md").read_text(encoding="utf-8")
+        t = (ROOT / "skills" / "clipscope" / "SKILL.md").read_text(encoding="utf-8")
         line = [l for l in t.splitlines() if l.startswith("allowed-tools:")][0]
-        self.assertEqual(line, "allowed-tools: Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/watch_clip.py *)")
+        self.assertEqual(line, "allowed-tools: Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/clipscope.py *)")
 
     def test_no_personal_paths_or_secrets(self):
         import re
         for p in ROOT.rglob("*"):
-            if p.is_file() and p.name != "test_watch_clip.py" and ".git" not in p.parts and "__pycache__" not in p.parts and p.suffix in (".py", ".md", ".json"):
+            if p.is_file() and p.name != "test_clipscope.py" and ".git" not in p.parts and "__pycache__" not in p.parts and p.suffix in (".py", ".md", ".json"):
                 t = p.read_text(encoding="utf-8")
                 self.assertIsNone(re.search(r"C:[\\/]Users|@gmail|sk-[A-Za-z0-9]{16}", t), str(p))
 
