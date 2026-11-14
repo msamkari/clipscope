@@ -10,7 +10,7 @@ Run (the script path exactly in this form, with no quotes around it; put the vid
 
 python ${CLAUDE_PLUGIN_ROOT}/scripts/clipscope.py '<url-or-file>' --fps 0.5 --max-frames 24 [--transcribe --model small --lang <code>] [--audio-metrics] [--out <folder in the scratchpad>]
 
-It writes `frames/f_###.jpg`, `audio.mp3`, `info_short.json` (for downloads), and with `--transcribe` `transcript.txt` and `transcript.json`; with `--audio-metrics` `audio_metrics.json` (loudness, true peak, silences over 0.6 s). It prints `OUT <folder>` and `FRAMES <n>`.
+It writes `frames/f_###.jpg`, `audio.mp3`, `info_short.json` (for downloads), and with `--transcribe` `transcript.txt` and `transcript.json`; with `--audio-metrics` `audio_metrics.json` (loudness, true peak, silences over 0.6 s; measured on the downsampled 16 kHz mono mp3, so approximate). Downloads of hosts that resolve to private/loopback addresses are refused, `--out` must be a new or empty folder, and every tool call has a timeout. It prints `OUT <folder>` and `FRAMES <n>`.
 
 Then Read `info_short.json`, Read several frames in parallel to see the video, and Read the transcript.
 

@@ -14,6 +14,8 @@ You need these on your PATH: `ffmpeg` (always), `yt-dlp` (for links), `whisper` 
 ## Use
 Ask Claude to watch a link or file ("watch this reel and tell me how the hook works"). Or run it yourself: `python scripts/clipscope.py <url-or-file> --fps 0.5 --max-frames 24 [--transcribe --lang en] [--audio-metrics] [--out DIR]`.
 
+**Safety notes.** Hosts resolving to loopback/private addresses are refused (best effort; this is not a network sandbox: redirects and later DNS changes are not covered). `--out` must be a new or empty folder (or under the temp dir). Every tool call has a timeout, and ffmpeg reads local files only (`-protocol_whitelist file`). Audio metrics are measured on the downsampled 16 kHz mono mp3, so loudness and peak values are approximate.
+
 ## Terms of service and privacy
 Downloading videos can be restricted by the platform's terms of service. You are responsible for what you download: use it for public videos and for analysis only, never to re-publish. The plugin uses no login, no cookies and no keys, ignores your yt-dlp configuration, and the plugin itself makes no network request of its own; `yt-dlp` contacts the video's host (and whatever servers that site needs), and `whisper` downloads its model on first use (`small` is a few hundred MB). Transcription runs on your machine. A downloaded video stays in the output folder until you delete it; frames come from the start of the clip only (`--fps` x `--max-frames`).
 

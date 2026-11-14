@@ -73,6 +73,46 @@ class ClipscopeTests(unittest.TestCase):
         run(str(f), "--out", str(o), env=self._env_with(d))
         self.assertFalse((o / "frames" / "f_099.jpg").exists())
 
+    def test_private_and_loopback_hosts_refused(self):
+        for u in ("http://127.0.0.1/v", "http://localhost/v", "http://[::1]/v", "http://10.0.0.5/v", "http://169.254.169.254/latest"):
+            r = run(u)
+            self.assertEqual(r.returncode, 2, u)
+            self.assertIn("non-public", r.stderr, u)
+
+    def test_public_host_check_uses_resolved_address(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import clipscope
+        fake = lambda ip: (lambda h, p: [(2, 1, 6, "", (ip, 0))])
+        self.assertIsNone(clipscope.public_host_error("https://x.test/a", fake("93.184.216.34")))
+        self.assertIn("non-public", clipscope.public_host_error("https://x.test/a", fake("192.168.1.9")))
+
+    def test_out_must_be_fresh_or_empty(self):
+        d = self._fake_tools(ok=True)
+        f = d / "a.mp4"; f.write_bytes(b"x")
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import clipscope
+        busy = pathlib.Path(__file__).resolve().parent  # non-empty, not under temp
+        with self.assertRaises(SystemExit):
+            clipscope.check_out_dir(busy)
+
+    def test_timeouts_and_protocol_whitelist_present(self):
+        src = pathlib.Path(SCRIPT).read_text(encoding="utf-8")
+        self.assertIn("timeout=", src)
+        self.assertGreaterEqual(src.count('"-protocol_whitelist", "file"'), 3)
+
+    def test_tool_timeout_is_a_clean_message(self):
+        d = pathlib.Path(tempfile.mkdtemp())
+        (d / "ffmpeg.py").write_text("import time\ntime.sleep(30)\n", encoding="utf-8")
+        (d / "ffmpeg.cmd").write_text('@"%s" "%%~dp0ffmpeg.py" %%*\r\n' % sys.executable, encoding="utf-8")
+        sh = d / "ffmpeg"; sh.write_text('#!/bin/sh\nexec "%s" "$(dirname "$0")/ffmpeg.py" "$@"\n' % sys.executable, encoding="utf-8"); sh.chmod(0o755)
+        f = d / "a.mp4"; f.write_bytes(b"x")
+        src = pathlib.Path(SCRIPT).read_text(encoding="utf-8").replace('"ffmpeg": 600', '"ffmpeg": 1')
+        s2 = d / "cs.py"; s2.write_text(src, encoding="utf-8")
+        r = subprocess.run([sys.executable, str(s2), str(f), "--out", str(d / "o")], capture_output=True, text=True, env=self._env_with(d))
+        self.assertEqual(r.returncode, 1, r.stderr)
+        self.assertIn("timed out", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+
     def test_skill_grants_only_the_plugin_script(self):
         t = (ROOT / "skills" / "clipscope" / "SKILL.md").read_text(encoding="utf-8")
         line = [l for l in t.splitlines() if l.startswith("allowed-tools:")][0]
