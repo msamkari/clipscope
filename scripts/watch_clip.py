@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """watch_clip.py <url-or-file> [--fps 0.5] [--max-frames 24] [--out DIR] [--transcribe] [--model small] [--lang CODE] [--audio-metrics]
 
-Lets Claude "watch" a clip: downloads a PUBLIC video (yt-dlp, up to 720p) or reads a local file, then writes
-frames/f_###.jpg and audio.mp3 (ffmpeg), optionally transcript.txt/.json (local openai-whisper) and audio_metrics.json.
+Lets Claude "watch" a clip: downloads a PUBLIC video (yt-dlp, 720p at most, 500 MB at most) or reads a local file, then writes
+frames/f_###.jpg (from the START of the clip only: fps x max-frames) and audio.mp3 (ffmpeg; a clip without audio just skips transcript and metrics). A downloaded video stays in the output folder as clip.*, optionally transcript.txt/.json (local openai-whisper) and audio_metrics.json.
 Python standard library only. It uses the tools found on PATH (yt-dlp, ffmpeg, whisper) and installs nothing.
 No login, no cookies, no keys. For analysis only: do not re-publish what it downloads.
 """
 import argparse, json, os, pathlib, re, shutil, subprocess, sys, tempfile
+MODELS = {"tiny", "base", "small", "medium", "large", "large-v2", "large-v3", "turbo", "tiny.en", "base.en", "small.en", "medium.en"}
 from urllib.parse import urlparse
 
 INSTALL_HINT = {
@@ -26,6 +27,15 @@ def need(tool):
     if not p:
         fail(f"`{tool}` was not found on PATH: {INSTALL_HINT[tool]}. This plugin does not install anything.")
     return p
+
+
+def run(cmd, what, **kw):
+    try:
+        return subprocess.run(cmd, check=True, **kw)
+    except subprocess.CalledProcessError as e:
+        fail(f"{what} failed (exit {e.returncode}). Nothing else was tried; ask the user before using other options.", 1)
+    except OSError as e:
+        fail(f"could not start {what}: {e}", 1)
 
 
 def is_web_url(s):
@@ -51,7 +61,8 @@ def parse_args(argv):
     if not (0 < a.fps <= 30): fail("--fps must be between 0 and 30")
     if not (1 <= a.max_frames <= 200): fail("--max-frames must be between 1 and 200")
     if a.lang is not None and not re.fullmatch(r"[A-Za-z]{2,3}", a.lang): fail("--lang must be a language code such as en or ar")
-    if not re.fullmatch(r"[A-Za-z0-9._-]+", a.model): fail("--model must be a plain model name such as small")
+    if a.model not in MODELS: fail("--model must be one of: " + ", ".join(sorted(MODELS)))
+    if a.out is not None and "%" in a.out: fail("--out must not contain %")
     return a
 
 
@@ -60,38 +71,47 @@ def main(argv=None):
     local = os.path.isfile(a.src)
     if not local and not is_web_url(a.src):
         fail("the source must be an existing local file or an http(s) URL")
-    out = pathlib.Path(a.out) if a.out else pathlib.Path(tempfile.gettempdir()) / "clips" / slug(a.src)
+    out = (pathlib.Path(a.out) if a.out else pathlib.Path(tempfile.mkdtemp(prefix="watch-clip-"))).resolve()
     out.mkdir(parents=True, exist_ok=True)
+    for old in list(out.glob("clip.*")) + list(out.glob("frames/f_*.jpg")) + [out / n for n in ("audio.mp3", "info_short.json", "transcript.txt", "transcript.json", "audio_metrics.json")]:
+        if old.is_file() and old != pathlib.Path(a.src).resolve(): old.unlink()  # stale files from an earlier run must never be reused
     ffmpeg = need("ffmpeg")
     if local:
         video = pathlib.Path(a.src)
     else:
         ytdlp = need("yt-dlp")
         # --ignore-config: a user's yt-dlp config (exec hooks, cookies) must never apply here; "--" ends options before the URL.
-        subprocess.run([ytdlp, "--ignore-config", "--no-playlist", "-f", "bv*[height<=720]+ba/b[height<=720]/b",
-                        "--merge-output-format", "mp4", "--write-info-json", "-o", str(out / "clip.%(ext)s"), "--", a.src], check=True)
-        video = out / "clip.mp4"
+        run([ytdlp, "--ignore-config", "--no-playlist", "--quiet", "--no-progress", "--max-filesize", "500M",
+             "-f", "bv*[height<=720]+ba/b[height<=720]", "--merge-output-format", "mp4", "--write-info-json",
+             "-o", str(out / "clip.%(ext)s"), "--", a.src], "yt-dlp", stdout=sys.stderr)
+        found = sorted(out.glob("clip.*"))
+        found = [f for f in found if f.suffix != ".json"]
+        if not found: fail("yt-dlp produced no video file (the site may block downloads, or the video is over 720p only / 500 MB)", 1)
+        video = found[0]
         ij = out / "clip.info.json"
         if ij.exists():
             d = json.load(open(ij, encoding="utf-8"))
             keep = {k: d.get(k) for k in ("title", "uploader", "duration", "view_count", "like_count", "comment_count", "upload_date", "description", "webpage_url")}
+            if isinstance(keep.get("description"), str): keep["description"] = keep["description"][:2000]
             json.dump(keep, open(out / "info_short.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
             ij.unlink()
     frames = out / "frames"
     frames.mkdir(exist_ok=True)
-    subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", str(video), "-vf", f"fps={a.fps},scale=540:-2", "-frames:v", str(a.max_frames), str(frames / "f_%03d.jpg")], check=True)
-    subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", str(video), "-vn", "-ac", "1", "-ar", "16000", str(out / "audio.mp3")], check=True)
-    if a.transcribe:
+    run([ffmpeg, "-y", "-loglevel", "error", "-i", str(video), "-vf", f"fps={a.fps},scale=540:-2", "-frames:v", str(a.max_frames), str(frames / "f_%03d.jpg")], "ffmpeg (frames)")
+    has_audio = subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", str(video), "-vn", "-ac", "1", "-ar", "16000", str(out / "audio.mp3")]).returncode == 0 and (out / "audio.mp3").is_file()
+    if not has_audio:
+        print("WARN no audio track: transcript and audio metrics skipped", file=sys.stderr)
+    if a.transcribe and has_audio:
         whisper = need("whisper")
         cmd = [whisper, str(out / "audio.mp3"), "--model", a.model, "--output_dir", str(out), "--output_format", "all", "--fp16", "False"]
         if a.lang: cmd += ["--language", a.lang]
-        subprocess.run(cmd, check=True, env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"})
+        run(cmd, "whisper", env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}, stdout=sys.stderr)
         for ext in ("srt", "vtt", "tsv"):
             p = out / f"audio.{ext}"
             if p.exists(): p.unlink()
         for s, d in (("audio.txt", "transcript.txt"), ("audio.json", "transcript.json")):
             if (out / s).exists(): (out / s).replace(out / d)
-    if a.audio_metrics:
+    if a.audio_metrics and has_audio:
         r = subprocess.run([ffmpeg, "-hide_banner", "-nostats", "-i", str(out / "audio.mp3"), "-af", "ebur128=peak=true,silencedetect=n=-35dB:d=0.6", "-f", "null", "-"],
                            capture_output=True, text=True, encoding="utf-8", errors="replace").stderr
         def last(pat):
