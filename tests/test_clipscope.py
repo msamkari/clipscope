@@ -86,6 +86,12 @@ class ClipscopeTests(unittest.TestCase):
         self.assertIsNone(clipscope.public_host_error("https://x.test/a", fake("93.184.216.34")))
         self.assertIn("non-public", clipscope.public_host_error("https://x.test/a", fake("192.168.1.9")))
 
+    def test_unresolvable_host_fails_closed(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import clipscope
+        def boom(h, p): raise OSError("no such host")
+        self.assertIn("cannot be resolved", clipscope.public_host_error("http://2130706433/x", boom))
+
     def test_out_must_be_fresh_or_empty(self):
         d = self._fake_tools(ok=True)
         f = d / "a.mp4"; f.write_bytes(b"x")

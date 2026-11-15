@@ -57,7 +57,7 @@ def public_host_error(url, resolver=socket.getaddrinfo):
     try:
         infos = resolver(host, None)
     except OSError:
-        return None  # cannot resolve here: let yt-dlp report it
+        return f"host {host} cannot be resolved here; refusing to fetch it"  # fail closed: odd forms (127.1, 0x7f000001) must not slip through
     for info in infos:
         ip = ipaddress.ip_address(info[4][0].split("%")[0])
         if not ip.is_global or ip.is_multicast:
@@ -106,7 +106,10 @@ def main(argv=None):
         if err: fail(err)
     out = (pathlib.Path(a.out) if a.out else pathlib.Path(tempfile.mkdtemp(prefix="clipscope-"))).resolve()
     check_out_dir(out)
-    out.mkdir(parents=True, exist_ok=True)
+    try:
+        out.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        fail(f"cannot create --out {out}: {e}")
     for old in list(out.glob("clip.*")) + list(out.glob("frames/f_*.jpg")) + [out / n for n in ("audio.mp3", "info_short.json", "transcript.txt", "transcript.json", "audio_metrics.json")]:
         if old.is_file() and old != pathlib.Path(a.src).resolve(): old.unlink()  # stale files from an earlier run must never be reused
     ffmpeg = need("ffmpeg")
