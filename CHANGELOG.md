@@ -6,7 +6,7 @@
 - `info_short.json`: every text field is capped (title 200, description 2000, others shorter) and stripped of control, format, bidi and surrogate characters; non-numeric values in numeric fields are dropped.
 - UNC/network paths are refused as sources and as `--out`; the `%` guard also runs on the resolved path (a working directory containing `%` is refused with a clear message).
 - Documented: the pre-run cleanup touches only the files the script names inside `--out`. README: licensing note (yt-dlp Unlicense, ffmpeg depends on the build and may be GPL, nothing bundled); the "no network request of its own" claim is corrected (the redirect check).
-- Tests: 14 -> 27; the out-folder test no longer depends on where the repo lives.
+- Tests: 14 -> 28; the out-folder test no longer depends on where the repo lives.
 - Not changed: `--ignore-config` does not disable yt-dlp plugin folders, no playlist-item limit, `64:ff9b::/96` forms still count as global, TOCTOU on `--out`, PATH shadowing.
 
 ## 0.1.1 (2026-11-15)

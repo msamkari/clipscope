@@ -78,6 +78,13 @@ class RedirectTests(unittest.TestCase):
         self.assertIsNone(clipscope.follow_redirects(a + "/a", resolver=PUBLIC))
         self.assertEqual([h[1] for h in hits], ["/a", "/b", "/c"])
 
+    def test_second_hop_carries_its_own_host_header_not_the_previous_one(self):
+        b, bhits = self.srv(lambda m, p, h: (200, {}))
+        a, ahits = self.srv(lambda m, p, h: (302, {"Location": b + "/next"}))
+        self.assertIsNone(clipscope.follow_redirects(a + "/r", resolver=PUBLIC))
+        self.assertEqual(bhits[0][2].get("Host"), b.split("//")[1])
+        self.assertNotEqual(ahits[0][2].get("Host"), bhits[0][2].get("Host"))
+
     def test_head_405_falls_back_to_range_get(self):
         a, hits = self.srv(lambda m, p, h: (405, {}) if m == "HEAD" else (206, {}))
         self.assertIsNone(clipscope.follow_redirects(a + "/v", resolver=PUBLIC))

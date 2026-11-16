@@ -98,7 +98,7 @@ class CheckedRedirect(urllib.request.HTTPRedirectHandler):
         err = public_host_error(target, self.resolver)
         if err:
             raise Refused("a redirect hop was refused: " + err)
-        return urllib.request.Request(target, headers=dict(req.header_items()), method=req.get_method())
+        return urllib.request.Request(target, headers=dict(req.headers), method=req.get_method())  # req.headers only: header_items() would carry the previous hop's Host
 
 
 def follow_redirects(url, resolver=socket.getaddrinfo, timeout=HOP_TIMEOUT):
