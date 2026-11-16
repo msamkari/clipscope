@@ -137,7 +137,8 @@ class HygieneTests(unittest.TestCase):
         d.mkdir()
         f = d / "a.mp4"
         f.write_bytes(b"x")
-        if "%" not in str((d / "rel").resolve()):
+        probe = subprocess.run([sys.executable, "-c", "import pathlib;print(pathlib.Path('rel').resolve())"], capture_output=True, text=True, cwd=str(d)).stdout
+        if "%" not in probe:
             self.skipTest("the runner expands the folder to an 8.3 short name without a percent sign")
         r = subprocess.run([sys.executable, SCRIPT, str(f), "--out", "rel"], capture_output=True, text=True, cwd=str(d))
         self.assertEqual(r.returncode, 2, r.stderr)
