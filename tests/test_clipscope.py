@@ -1,4 +1,5 @@
 import os, pathlib, subprocess, sys, tempfile, unittest
+from unittest import mock
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCRIPT = str(ROOT / "scripts" / "clipscope.py")
 
@@ -97,9 +98,10 @@ class ClipscopeTests(unittest.TestCase):
         f = d / "a.mp4"; f.write_bytes(b"x")
         sys.path.insert(0, str(ROOT / "scripts"))
         import clipscope
-        busy = pathlib.Path(__file__).resolve().parent  # non-empty, not under temp
-        with self.assertRaises(SystemExit):
-            clipscope.check_out_dir(busy)
+        busy = pathlib.Path(__file__).resolve().parent  # non-empty
+        with mock.patch.object(tempfile, "gettempdir", return_value=str(d)):  # "temp" is elsewhere, wherever the repo lives
+            with self.assertRaises(SystemExit):
+                clipscope.check_out_dir(busy)
 
     def test_timeouts_and_protocol_whitelist_present(self):
         src = pathlib.Path(SCRIPT).read_text(encoding="utf-8")
